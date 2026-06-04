@@ -6,15 +6,13 @@ PowerShell에서 **위에서 아래 순서대로** 진행한다.
 | 문서 | 용도 |
 |------|------|
 | **이 파일** | 설치·코드·실행·검증 (전체) |
-| `진행순서_8단계.md` | 같은 날 8번 나눠 진행할 때의 **시간표만** |
-| `seed/README.md` | 발전량 720시간 시드 상세 |
-| `소스_공유_방법.md` | zip / GitHub 등 **파일 공유** |
+| `seed/README.md` | 발전량 720시간 시드 (5절) |
 
 ---
 
 ## 목차
 
-0. [한눈에 보기](#0-한눈에-보기)  
+0. [한눈에 보기](#0-한눈에-보기) (0.4 GitHub `git clone` 포함)  
 1. [준비](#1-준비)  
 2. [uv 설치](#2-uv-설치)  
 3. [MySQL (Docker)](#3-mysql-docker)  
@@ -47,7 +45,7 @@ train_baseline.py  →  발전량 예측 (비교용)
 lstm_train.py      →  과거 35시간 × 8 feature → LSTM
 ```
 
-- **시간 단위** 데이터만 사용한다 (일자료 ASOS DAY는 사용하지 않음).
+- **시간 단위** 데이터만 사용한다 (1시간 1행).
 - 기본 기상 소스: **`WEATHER_SOURCE=openmeteo`** (API 키 불필요).
 - LSTM 입력: **35시간 × 8개 feature**, 데이터 길이 목표 **약 720시간(30일)**.
 
@@ -61,19 +59,56 @@ lstm_train.py      →  과거 35시간 × 8 feature → LSTM
 - [ ] `train_baseline.py` → `metrics_baseline.json`
 - [ ] `lstm_train.py` → **`[COMPARE]`** MAE 출력
 
-### 0.3 `일경험` 폴더에서 복사할 파일
+### 0.3 저장소에 포함된 파일 (GitHub)
 
-`weather-rp2040-lab` 프로젝트 안에 아래를 **복사**해 둔다 (14~15절).
+`git clone` 후 `weather-rp2040-lab-materials` 폴더에 아래가 있다.
 
 ```text
+실습매뉴얼_공공데이터_RP2040_MySQL.md
 collect_rp2040_modbus.py
 ml_shared.py
 train_baseline.py
 lstm_train.py
+seed/power_realtime_seed.sql
+seed/README.md
+seed/generate_power_seed.py
 ```
 
-`seed/power_realtime_seed.sql` 은 5절에서 import 한다.  
-12절 Modbus 스크립트는 위 파일을 복사하거나 매뉴얼 코드를 붙여 넣어도 된다.
+6절에서 이 폴더를 Python 작업 디렉터리로 쓴다. 별도 복사는 필요 없다.
+
+### 0.4 GitHub에서 자료 받기
+
+매뉴얼·`seed/`·Python 스크립트는 아래 **비공개 저장소**에 있다.
+
+- 저장소: https://github.com/seogilan0/weather-rp2040-lab-materials
+
+**처음 받을 때** ([Git](https://git-scm.com/download/win) 설치 후):
+
+```powershell
+cd $HOME\Projects
+git clone https://github.com/seogilan0/weather-rp2040-lab-materials.git
+cd weather-rp2040-lab-materials
+```
+
+clone 되면 폴더 `weather-rp2040-lab-materials` 가 생긴다. 아래 명령의 경로는 **이 폴더**를 기준으로 한다.
+
+예 (5절 시드 import):
+
+```powershell
+docker exec -i weather-mysql mysql -u weather -pweatherpass weather < "$HOME\Projects\weather-rp2040-lab-materials\seed\power_realtime_seed.sql"
+```
+
+**Private 저장소**이므로 clone 전에 GitHub **Settings → Collaborators** 에 해당 계정을 추가해야 한다.  
+push·pull 할 때 브라우저 로그인(`seogilan0`) 또는 토큰이 필요할 수 있다.
+
+**이미 받은 폴더를 최신으로:**
+
+```powershell
+cd $HOME\Projects\weather-rp2040-lab-materials
+git pull
+```
+
+이후 작업은 **6절부터 이 clone 폴더 안**에서 진행한다.
 
 ---
 
@@ -82,6 +117,7 @@ lstm_train.py
 | 항목 | 설명 |
 |------|------|
 | OS | Windows, PowerShell |
+| Git | 0.4절 — `git clone` 으로 자료 받기 |
 | Docker Desktop | MySQL 컨테이너용 |
 | uv | Python 패키지·실행 |
 | RP2040 | Modbus **RTU**(COM) 또는 **TCP** 에뮬레이터 (12절) |
@@ -201,7 +237,7 @@ docker exec -it weather-mysql mysql -u weather -pweatherpass -e "USE weather; SH
 30일치 `power_realtime` 을 넣는다. Modbus를 며칠 돌리지 않아도 LSTM까지 이어진다.
 
 ```powershell
-docker exec -i weather-mysql mysql -u weather -pweatherpass weather < "C:\Users\user\일경험\seed\power_realtime_seed.sql"
+docker exec -i weather-mysql mysql -u weather -pweatherpass weather < "$HOME\Projects\weather-rp2040-lab-materials\seed\power_realtime_seed.sql"
 ```
 
 경로는 `power_realtime_seed.sql` 위치에 맞게 수정한다.  
@@ -219,16 +255,18 @@ docker exec -it weather-mysql mysql -u weather -pweatherpass -e "USE weather; SE
 
 ## 6. Python 프로젝트
 
+0.4절에서 clone 한 폴더에서 패키지를 설정한다.
+
 ```powershell
-mkdir $HOME\Projects -ErrorAction SilentlyContinue
-cd $HOME\Projects
-uv init weather-rp2040-lab
-cd weather-rp2040-lab
+cd $HOME\Projects\weather-rp2040-lab-materials
+uv init
 uv python install 3.12
 uv add requests pymysql python-dotenv pymodbus
 ```
 
-**확인:** `weather-rp2040-lab` 폴더에 `pyproject.toml` 이 있으면 7절로.
+`uv init` 이 “이미 프로젝트”라고 하면 `pyproject.toml` 이 있는지 보고, 없을 때만 `uv init` 한다.
+
+**확인:** 이 폴더에 `pyproject.toml` 이 있으면 7절로.
 
 ---
 
@@ -539,7 +577,7 @@ if __name__ == "__main__":
 **실행** (기본: 어제 하루 ≈ 24행):
 
 ```powershell
-cd $HOME\Projects\weather-rp2040-lab
+cd $HOME\Projects\weather-rp2040-lab-materials
 uv run python collect_weather.py
 ```
 
@@ -619,7 +657,7 @@ docker exec -it weather-mysql mysql -u weather -pweatherpass -e "USE weather; SE
 | `rtu` | COM 포트, 9600 8N1 | `MODBUS_PORT=COM3` |
 | `tcp` | Listen IP·포트 (예: 127.0.0.1:5020) | `MODBUS_HOST`, `MODBUS_TCP_PORT` |
 
-`collect_rp2040_modbus.py` — `일경험` 폴더에서 **복사**하거나, 아래와 동일한 내용을 새 파일로 붙여 넣는다.
+`collect_rp2040_modbus.py` — 저장소에 있으면 그대로 쓰고, 없으면 아래 내용으로 파일을 만든다.
 
 ```python
 from __future__ import annotations
@@ -806,12 +844,10 @@ WHERE w.source = 'openmeteo';
 
 ## 14. 베이스라인 예측 — `train_baseline.py`
 
-**순서:** `ml_shared.py`, `train_baseline.py` 를 `일경험` 폴더에서 `weather-rp2040-lab` 로 복사한다.
-
-**패키지:**
+**패키지** (clone 폴더에서):
 
 ```powershell
-cd $HOME\Projects\weather-rp2040-lab
+cd $HOME\Projects\weather-rp2040-lab-materials
 uv add pandas scikit-learn
 ```
 
@@ -832,7 +868,7 @@ uv run python train_baseline.py
 
 ## 15. LSTM — `lstm_train.py`
 
-**순서:** `lstm_train.py` 를 프로젝트에 복사 (이미 `ml_shared.py` 있어야 함).
+`lstm_train.py`, `ml_shared.py` 가 같은 폴더에 있어야 한다.
 
 **패키지:**
 
@@ -866,26 +902,23 @@ uv run python lstm_train.py
 ## 16. 파일 목록
 
 ```text
-weather-rp2040-lab/
-  .env
-  db.py
-  weather_sources.py
+weather-rp2040-lab-materials/     ← git clone (GitHub 공유)
+  실습매뉴얼_공공데이터_RP2040_MySQL.md
+  .env                              ← 각 PC에서 직접 생성 (Git 제외)
+  pyproject.toml                    ← 6절 uv
+  db.py, weather_sources.py         ← 8~9절
   collect_weather.py
   collect_weather_backfill.py
   collect_rp2040_modbus.py
-  ml_shared.py          ← 일경험에서 복사
-  train_baseline.py     ← 일경험에서 복사
-  lstm_train.py         ← 일경험에서 복사
-  metrics_baseline.json ← 14절 실행 후 생성
-
-일경험/
-  실습매뉴얼_공공데이터_RP2040_MySQL.md
-  진행순서_8단계.md
-  소스_공유_방법.md
-  collect_rp2040_modbus.py
+  ml_shared.py
+  train_baseline.py
+  lstm_train.py
+  metrics_baseline.json             ← 14절 실행 후 (Git 제외)
   seed/power_realtime_seed.sql
   seed/README.md
 ```
+
+저장소: https://github.com/seogilan0/weather-rp2040-lab-materials
 
 | 파일 | 역할 |
 |------|------|
@@ -895,8 +928,6 @@ weather-rp2040-lab/
 | `collect_rp2040_modbus.py` | Modbus 실시간 저장 |
 | `train_baseline.py` | sklearn 베이스라인 |
 | `lstm_train.py` | LSTM + MAE 비교 |
-
-**미사용:** `weather_daily`, `collect_weather_api.py`, `collect_weather_range.py`
 
 ---
 
@@ -926,6 +957,4 @@ weather-rp2040-lab/
 4. `db.py` → `weather_sources.py` → v1 → v2 (720)  
 5. Modbus **짧게** 실행  
 6. join 확인  
-7. `train_baseline.py` → `lstm_train.py`  
-
-같은 날 시간만 나눌 때: `진행순서_8단계.md`
+7. `train_baseline.py` → `lstm_train.py`

@@ -3,6 +3,15 @@
 .env.*
 !.env.example
 
+# 강사용만 (로컬 보관, GitHub·clone 제외)
+진행순서_8단계.md
+소스_공유_방법.md
+_instructor/
+instructor/
+*.local.md
+답안/
+해설/
+
 # Python
 __pycache__/
 *.py[cod]
