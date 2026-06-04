@@ -3,6 +3,8 @@
 PowerShell에서 **위에서 아래 순서대로** 진행한다.  
 각 절 끝의 **확인**을 통과한 뒤 다음 절로 넘어간다.
 
+**Python 코드:** 저장소에 `.py` 는 없다. 매뉴얼 해당 절에서 **파일을 하나씩 만들고** 코드 블록을 **통째로 붙여 넣은 뒤** 실행한다.
+
 | 문서 | 용도 |
 |------|------|
 | **이 파일** | 설치·코드·실행·검증 (전체) |
@@ -26,10 +28,11 @@ PowerShell에서 **위에서 아래 순서대로** 진행한다.
 11. [기상 수집 v2 — 30일 backfill](#11-기상-수집-v2--30일-backfill)  
 12. [RP2040 Modbus 저장](#12-rp2040-modbus-저장)  
 13. [join으로 데이터 확인](#13-join으로-데이터-확인)  
-14. [베이스라인 예측 — `train_baseline.py`](#14-베이스라인-예측--train_baselinepy)  
-15. [LSTM — `lstm_train.py`](#15-lstm--lstm_trainpy)  
-16. [파일 목록](#16-파일-목록)  
-17. [자주 발생하는 문제](#17-자주-발생하는-문제)  
+14. [`ml_shared.py`](#14-ml_sharedpy)  
+15. [베이스라인 — `train_baseline.py`](#15-베이스라인--train_baselinepy)  
+16. [LSTM — `lstm_train.py`](#16-lstm--lstm_trainpy)  
+17. [파일 목록](#17-파일-목록)  
+18. [자주 발생하는 문제](#18-자주-발생하는-문제)  
 
 ---
 
@@ -56,29 +59,39 @@ lstm_train.py      →  과거 35시간 × 8 feature → LSTM
 - [ ] `weather_hourly` ≈ **720**행 (11절 backfill)
 - [ ] Modbus 스크립트로 최신 행 1건 이상 (12절)
 - [ ] join SQL 결과 ≈ **720**행 (13절)
-- [ ] `train_baseline.py` → `metrics_baseline.json`
-- [ ] `lstm_train.py` → **`[COMPARE]`** MAE 출력
+- [ ] `ml_shared.py` 생성 (14절)
+- [ ] `train_baseline.py` → `metrics_baseline.json` (15절)
+- [ ] `lstm_train.py` → **`[COMPARE]`** MAE 출력 (16절)
 
-### 0.3 저장소에 포함된 파일 (GitHub)
+### 0.3 GitHub에서 받는 것 / 직접 만드는 것
 
-`git clone` 후 `weather-rp2040-lab-materials` 폴더에 아래가 있다.
+**clone 후 저장소에 있는 것**
 
 ```text
 실습매뉴얼_공공데이터_RP2040_MySQL.md
-collect_rp2040_modbus.py
-ml_shared.py
-train_baseline.py
-lstm_train.py
 seed/power_realtime_seed.sql
 seed/README.md
-seed/generate_power_seed.py
+.gitignore
 ```
 
-6절에서 이 폴더를 Python 작업 디렉터리로 쓴다. 별도 복사는 필요 없다.
+**매뉴얼을 따라 하나씩 만드는 Python 파일** (절 번호)
+
+| 절 | 파일 |
+|----|------|
+| 8 | `db.py` |
+| 9 | `weather_sources.py` |
+| 10 | `collect_weather.py` |
+| 11 | `collect_weather_backfill.py` |
+| 12 | `collect_rp2040_modbus.py` |
+| 14 | `ml_shared.py` |
+| 15 | `train_baseline.py` |
+| 16 | `lstm_train.py` |
+
+6절에서 clone 폴더를 Python 작업 디렉터리로 쓴다.
 
 ### 0.4 GitHub에서 자료 받기
 
-매뉴얼·`seed/`·Python 스크립트는 아래 **비공개 저장소**에 있다.
+매뉴얼·`seed/` 는 아래 **비공개 저장소**에 있다. Python은 매뉴얼에서 **직접 생성**한다.
 
 - 저장소: https://github.com/seogilan0/weather-rp2040-lab-materials
 
@@ -316,7 +329,7 @@ DEVICE_ID=RP2040-EMU-01
 
 ## 8. `db.py`
 
-프로젝트 루트에 `db.py` 를 만들고 아래 **전체**를 붙여 넣는다.
+프로젝트 루트에 **`db.py` 파일을 새로 만든다.** 아래 **전체**를 붙여 넣는다.
 
 ```python
 from __future__ import annotations
@@ -657,7 +670,7 @@ docker exec -it weather-mysql mysql -u weather -pweatherpass -e "USE weather; SE
 | `rtu` | COM 포트, 9600 8N1 | `MODBUS_PORT=COM3` |
 | `tcp` | Listen IP·포트 (예: 127.0.0.1:5020) | `MODBUS_HOST`, `MODBUS_TCP_PORT` |
 
-`collect_rp2040_modbus.py` — 저장소에 있으면 그대로 쓰고, 없으면 아래 내용으로 파일을 만든다.
+`collect_rp2040_modbus.py` 파일을 새로 만들고, 아래 **전체**를 붙여 넣는다.
 
 ```python
 from __future__ import annotations
@@ -842,64 +855,274 @@ WHERE w.source = 'openmeteo';
 
 ---
 
-## 14. 베이스라인 예측 — `train_baseline.py`
+## 14. `ml_shared.py`
 
-**패키지** (clone 폴더에서):
+14~16절에서 공통으로 쓴다. **15절보다 먼저** 만든다.
 
-```powershell
-cd $HOME\Projects\weather-rp2040-lab-materials
-uv add pandas scikit-learn
+`ml_shared.py` 생성 후 아래 **전체** 붙여넣기:
+
+```python
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pymysql
+from dotenv import load_dotenv
+from sklearn.preprocessing import MinMaxScaler
+
+SEQ_LEN = 35
+TEST_RATIO = 0.2
+FEATURES = [
+    "temperature",
+    "humidity",
+    "wind_speed",
+    "solar_radiation",
+    "precipitation",
+    "power_kw",
+    "panel_temp",
+    "panel_humidity",
+]
+TARGET = "power_kw"
+METRICS_PATH = Path(__file__).with_name("metrics_baseline.json")
+
+
+def load_joined() -> pd.DataFrame:
+    load_dotenv()
+    conn = pymysql.connect(
+        host=os.getenv("MYSQL_HOST", "127.0.0.1"),
+        port=int(os.getenv("MYSQL_PORT", "3306")),
+        user=os.getenv("MYSQL_USER", "weather"),
+        password=os.getenv("MYSQL_PASSWORD", "weatherpass"),
+        database=os.getenv("MYSQL_DATABASE", "weather"),
+        charset="utf8mb4",
+    )
+    sql = """
+    SELECT
+      w.obs_time,
+      w.temperature,
+      w.humidity,
+      w.wind_speed,
+      w.solar_radiation,
+      w.precipitation,
+      p.power_kw,
+      p.temperature AS panel_temp,
+      p.humidity AS panel_humidity
+    FROM weather_hourly w
+    INNER JOIN power_hourly p
+      ON p.hour_time = DATE_FORMAT(w.obs_time, '%%Y-%%m-%%d %%H:00:00')
+      AND p.device_id = %s
+    WHERE w.source = %s
+    ORDER BY w.obs_time
+    """
+    device = os.getenv("DEVICE_ID", "RP2040-EMU-01")
+    source = os.getenv("WEATHER_SOURCE", "openmeteo")
+    df = pd.read_sql(sql, conn, params=(device, source))
+    conn.close()
+    return df
+
+
+def require_rows(df: pd.DataFrame, min_rows: int = 400) -> None:
+    if len(df) < min_rows:
+        raise RuntimeError(
+            f"join 행 수 부족: {len(df)} (기상 backfill 30일 + power 시드 import 확인)"
+        )
+
+
+def split_index(n: int, test_ratio: float = TEST_RATIO) -> int:
+    return int(n * (1 - test_ratio))
+
+
+def make_sequences(df: pd.DataFrame, seq_len: int = SEQ_LEN):
+    data = df[FEATURES].astype(float).values
+    scaler = MinMaxScaler()
+    scaled = scaler.fit_transform(data)
+    xs, ys = [], []
+    target_idx = FEATURES.index(TARGET)
+    for i in range(seq_len, len(scaled)):
+        xs.append(scaled[i - seq_len : i])
+        ys.append(scaled[i, target_idx])
+    return np.array(xs), np.array(ys), scaler
+
+
+def inverse_power_kw(scaler: MinMaxScaler, y_scaled: np.ndarray) -> np.ndarray:
+    idx = FEATURES.index(TARGET)
+    lo, hi = scaler.data_min_[idx], scaler.data_max_[idx]
+    return y_scaled * (hi - lo) + lo
+
+
+def save_baseline_metrics(mae: float, rmse: float, r2: float) -> None:
+    METRICS_PATH.write_text(
+        json.dumps({"mae_kw": mae, "rmse_kw": rmse, "r2": r2}, indent=2),
+        encoding="utf-8",
+    )
+
+
+def load_baseline_metrics() -> dict | None:
+    if not METRICS_PATH.exists():
+        return None
+    return json.loads(METRICS_PATH.read_text(encoding="utf-8"))
 ```
 
-**실행:**
-
-```powershell
-uv run python train_baseline.py
-```
-
-**확인:**
-
-- 콘솔에 `test MAE (kW)`, `R²` 출력
-- 프로젝트에 `metrics_baseline.json` 생성
-
-베이스라인은 **현재 시각 8 feature** 만으로 `power_kw` 를 맞춘다. 15절 LSTM과 **MAE 비교**용이다.
+**확인:** 파일 저장 후 15절로.
 
 ---
 
-## 15. LSTM — `lstm_train.py`
+## 15. 베이스라인 — `train_baseline.py`
 
-`lstm_train.py`, `ml_shared.py` 가 같은 폴더에 있어야 한다.
+`train_baseline.py` 생성 후 아래 **전체** 붙여넣기:
+
+```python
+from __future__ import annotations
+
+import numpy as np
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+from ml_shared import (
+    FEATURES,
+    METRICS_PATH,
+    TARGET,
+    load_joined,
+    require_rows,
+    save_baseline_metrics,
+    split_index,
+)
+
+
+def main():
+    df = load_joined()
+    require_rows(df)
+    print(f"[INFO] join 행 수: {len(df)}, 기간: {df['obs_time'].min()} ~ {df['obs_time'].max()}")
+
+    X = df[FEATURES].astype(float).values
+    y = df[TARGET].astype(float).values
+    cut = split_index(len(df))
+    X_train, X_test = X[:cut], X[cut:]
+    y_train, y_test = y[:cut], y[cut:]
+
+    model = HistGradientBoostingRegressor(max_depth=6, learning_rate=0.1, random_state=42)
+    model.fit(X_train, y_train)
+    pred = model.predict(X_test)
+
+    mae = mean_absolute_error(y_test, pred)
+    rmse = float(np.sqrt(mean_squared_error(y_test, pred)))
+    r2 = r2_score(y_test, pred)
+    save_baseline_metrics(mae, rmse, r2)
+
+    print("[BASELINE] HistGradientBoosting — 현재 시각 8 feature → power_kw")
+    print(f"  test MAE  (kW): {mae:.4f}")
+    print(f"  test RMSE (kW): {rmse:.4f}")
+    print(f"  test R²:        {r2:.4f}")
+    print(f"  (저장) {METRICS_PATH}")
+
+
+if __name__ == "__main__":
+    main()
+```
 
 **패키지:**
 
 ```powershell
-uv add tensorflow
+cd $HOME\Projects\weather-rp2040-lab-materials
+uv add pandas scikit-learn
+uv run python train_baseline.py
 ```
 
-**실행** (`train_baseline.py` **이후** 권장):
-
-```powershell
-uv run python lstm_train.py
-```
-
-**확인:**
-
-- 학습 로그 후 `test MAE (kW)` 출력
-- **`[COMPARE]`** 에 Baseline vs LSTM MAE 가 나옴
-
-**해석:**
-
-- Baseline = 그 시각 feature 만 사용
-- LSTM = **지난 35시간** 패턴 사용  
-- LSTM MAE가 더 크게 나와도 데이터 양·epoch 부족일 수 있음
-
-7절을 건너뛰면 LSTM만 실행 가능하나 `[COMPARE]` 는 나오지 않는다.
-
-참고 영상: [YouTube](https://www.youtube.com/watch?v=UCqb0VWsa5o)
+**확인:** `test MAE`, `R²`, `metrics_baseline.json` 생성 → 16절.
 
 ---
 
-## 16. 파일 목록
+## 16. LSTM — `lstm_train.py`
+
+`lstm_train.py` 생성 후 아래 **전체** 붙여넣기 (`ml_shared.py` 와 같은 폴더):
+
+```python
+from __future__ import annotations
+
+import numpy as np
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from tensorflow.keras.layers import LSTM, Dense
+from tensorflow.keras.models import Sequential
+
+from ml_shared import (
+    FEATURES,
+    SEQ_LEN,
+    TARGET,
+    inverse_power_kw,
+    load_baseline_metrics,
+    load_joined,
+    make_sequences,
+    require_rows,
+    split_index,
+)
+
+
+def main():
+    df = load_joined()
+    require_rows(df, min_rows=SEQ_LEN + 50)
+    print(f"[INFO] join 행 수: {len(df)}, 기간: {df['obs_time'].min()} ~ {df['obs_time'].max()}")
+
+    X, y_scaled, scaler = make_sequences(df, SEQ_LEN)
+    cut = split_index(len(X))
+    X_train, X_test = X[:cut], X[cut:]
+    y_train, y_test = y_scaled[:cut], y_scaled[cut:]
+
+    model = Sequential(
+        [
+            LSTM(64, input_shape=(SEQ_LEN, len(FEATURES))),
+            Dense(1),
+        ]
+    )
+    model.compile(optimizer="adam", loss="mse")
+    model.fit(
+        X_train,
+        y_train,
+        epochs=8,
+        batch_size=32,
+        validation_data=(X_test, y_test),
+        verbose=1,
+    )
+
+    pred_scaled = model.predict(X_test, verbose=0).flatten()
+    y_test_kw = inverse_power_kw(scaler, y_test)
+    pred_kw = inverse_power_kw(scaler, pred_scaled)
+    mae = mean_absolute_error(y_test_kw, pred_kw)
+    rmse = float(np.sqrt(mean_squared_error(y_test_kw, pred_kw)))
+
+    print("[LSTM] 과거 35시간 × 8 feature → power_kw")
+    print(f"  test MAE  (kW): {mae:.4f}")
+    print(f"  test RMSE (kW): {rmse:.4f}")
+
+    base = load_baseline_metrics()
+    if base:
+        b_mae = base["mae_kw"]
+        print("\n[COMPARE] Baseline vs LSTM MAE (kW)")
+        print(f"  Baseline: {b_mae:.4f}")
+        print(f"  LSTM:     {mae:.4f}")
+    else:
+        print("\n[HINT] 먼저 15절 train_baseline.py 실행")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+**패키지·실행** (15절 **이후**):
+
+```powershell
+uv add tensorflow
+uv run python lstm_train.py
+```
+
+**확인:** `[COMPARE]` 출력. 참고: [YouTube](https://www.youtube.com/watch?v=UCqb0VWsa5o)
+
+---
+
+## 17. 파일 목록
 
 ```text
 weather-rp2040-lab-materials/     ← git clone (GitHub 공유)
@@ -931,7 +1154,7 @@ weather-rp2040-lab-materials/     ← git clone (GitHub 공유)
 
 ---
 
-## 17. 자주 발생하는 문제
+## 18. 자주 발생하는 문제
 
 | 증상 | 확인·대응 |
 |------|-----------|
@@ -943,9 +1166,10 @@ weather-rp2040-lab-materials/     ← git clone (GitHub 공유)
 | `power_hourly` ≠ 720 | 5절 SQL import 경로 |
 | Modbus 연결 실패 | `MODBUS_MODE`·RTU: COM 번호 / TCP: Host·Port·에뮬 Listen |
 | `MODBUS_MODE` 오류 | `rtu` 또는 `tcp` 만 허용 (대소문자 무관) |
-| TensorFlow 설치 느림 | 14절은 sklearn만 먼저, 15절 전 설치 |
-| `[COMPARE]` 없음 | 14절 `train_baseline.py` 먼저 실행 |
+| TensorFlow 설치 느림 | 15절까지 sklearn만, 16절 전 tensorflow |
+| `[COMPARE]` 없음 | 15절 `train_baseline.py` 먼저 실행 |
 | LSTM 행 수 부족 | 11절 backfill 30 + 5절 시드 |
+| `ModuleNotFoundError: ml_shared` | 14절 `ml_shared.py` 먼저 생성·저장 |
 
 ---
 
@@ -957,4 +1181,4 @@ weather-rp2040-lab-materials/     ← git clone (GitHub 공유)
 4. `db.py` → `weather_sources.py` → v1 → v2 (720)  
 5. Modbus **짧게** 실행  
 6. join 확인  
-7. `train_baseline.py` → `lstm_train.py`
+7. `ml_shared.py` → `train_baseline.py` → `lstm_train.py`
