@@ -13,7 +13,6 @@
 4. [파일 설명](#4-파일-설명)
 5. [데이터 파이프라인](#5-데이터-파이프라인)
 6. [모델 결과](#6-모델-결과)
-7. [주요 문제 해결 기록](#7-주요-문제-해결-기록)
 
 ---
 
@@ -31,6 +30,8 @@ RP2040 Modbus → power_realtime → power_hourly (뷰)
                                    Baseline    LSTM
                                (t→t+1 예측) (35h→next)
 ```
+- Architecture animation video
+[에니메이션 영상](https://github.com/user-attachments/assets/32845823-b443-4fad-8923-4dc90e7b1d37)
 
 ### 8개 Feature
 
@@ -222,7 +223,7 @@ WHERE w.source = 'openmeteo'
 > 1시간 전 값만으로도 예측이 잘 됨.  
 > 실제 발전소 데이터를 장기 수집하면 LSTM이 더 유리해짐.
 
-### 시각화 구성 (`visualize.py`)
+### 시각화 구성 
 
 1. **전체 기간** — 실제값 vs Baseline vs LSTM + 미래 24시간 예측
 2. **테스트 구간 72시간** 확대
@@ -230,49 +231,7 @@ WHERE w.source = 'openmeteo'
 4. **오차 분포** 비교 (Baseline vs LSTM)
 5. **기상 Feature 상관계수** — 일사량이 발전량과 가장 높은 상관
 
----
+- 시각화 결과
+![시각화 결과](https://github.com/user-attachments/assets/eabcf14a-9174-478b-bea3-091b5fc9487b)
 
-## 7. 주요 문제 해결 기록
 
-### MySQL 포트 충돌
-- 기본 포트 3306 사용 중 → **3307로 변경**
-- `.env`의 `MYSQL_PORT=3307` 설정 필수
-
-### WSL2에서 COM 포트 접근
-- Windows COM11 → WSL2에서 `/dev/ttyACM0`
-- usbipd-win 설치 후 PowerShell(관리자)에서:
-  ```powershell
-  usbipd bind --busid 2-9
-  usbipd attach --wsl --busid 2-9
-  ```
-- WSL 재시작 후마다 `usbipd attach` 재실행 필요
-- 사용자를 dialout 그룹에 추가:
-  ```bash
-  sudo usermod -aG dialout $USER
-  # 이후 WSL 재시작
-  ```
-
-### Open-Meteo 날짜 범위 불일치
-- 시드(05-06~06-04) vs backfill 30일(05-07~06-05) → JOIN 696행
-- 31일 backfill로 재실행하여 720행 달성:
-  ```bash
-  uv run python collect_weather_backfill.py 31
-  ```
-
-### pyserial 누락
-- pymodbus RTU 사용 시 pyserial 별도 설치 필요:
-  ```bash
-  uv add pyserial
-  ```
-
-### matplotlib 한글 깨짐
-- NanumGothic 폰트 설치 및 캐시 초기화:
-  ```bash
-  sudo apt-get install -y fonts-nanum
-  rm -rf ~/.cache/matplotlib
-  ```
-- `visualize.py` 상단에 추가:
-  ```python
-  matplotlib.rcParams["font.family"] = "NanumGothic"
-  matplotlib.rcParams["axes.unicode_minus"] = False
-  ```
