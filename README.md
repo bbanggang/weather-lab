@@ -30,8 +30,9 @@ RP2040 Modbus → power_realtime → power_hourly (뷰)
                                    Baseline    LSTM
                                (t→t+1 예측) (35h→next)
 ```
-- Architecture animation video
-[에니메이션 영상](https://github.com/user-attachments/assets/32845823-b443-4fad-8923-4dc90e7b1d37)
+---
+
+<video src="https://github.com/user-attachments/assets/32845823-b443-4fad-8923-4dc90e7b1d37" controls autoplay loop muted width="100%"></video>
 
 ### 8개 Feature
 
