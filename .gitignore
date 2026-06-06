@@ -23,6 +23,8 @@ venv/
 # 학습 결과·캐시
 metrics_baseline.json
 weather_api_*.json
+prediction_visualization.png
+*.png
 
 # OS / 에디터
 .DS_Store
