@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Weather-Lab · Pipeline Visualization</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 20px 40px;
+}
+
+h1 { font-size: 1.25rem; color: #58a6ff; margin-bottom: 4px; letter-spacing: .5px; }
+.sub { font-size: 0.75rem; color: #8b949e; margin-bottom: 22px; }
+
+/* ── 탭 ── */
+.tabs { display: flex; gap: 8px; margin-bottom: 28px; flex-wrap: wrap; justify-content: center; }
+.tab-btn {
+  padding: 7px 20px; border-radius: 20px;
+  border: 1.5px solid #30363d; background: #161b22;
+  color: #8b949e; cursor: pointer; font-size: 0.8rem;
+  transition: all .18s;
+}
+.tab-btn:hover { border-color: #58a6ff66; color: #c9d1d9; }
+.tab-btn.active { background: #1f2d3d; border-color: #58a6ff; color: #58a6ff; font-weight: 700; }
+
+.panel { display: none; width: 100%; max-width: 820px; }
+.panel.active { display: flex; flex-direction: column; align-items: center; gap: 0; }
+
+/* ── 블록 ── */
+.block {
+  width: 100%;
+  border-radius: 12px;
+  padding: 16px 20px;
+  border: 1.5px solid;
+  text-align: center;
+  position: relative;
+}
+.block-title { font-size: .95rem; font-weight: 700; margin-bottom: 4px; }
+.block-desc  { font-size: .78rem; color: #8b949e; line-height: 1.5; }
+
+.b-blue   { background: #0c2340; border-color: #1f6feb; }
+.b-blue   .block-title { color: #58a6ff; }
+.b-green  { background: #0c2b1a; border-color: #2ea043; }
+.b-green  .block-title { color: #3fb950; }
+.b-orange { background: #2b1a0c; border-color: #d29922; }
+.b-orange .block-title { color: #e3b341; }
+.b-teal   { background: #0b1e24; border-color: #2188b6; }
+.b-teal   .block-title { color: #39c5cf; }
+.b-purple { background: #1a1030; border-color: #8957e5; }
+.b-purple .block-title { color: #a371f7; }
+.b-red    { background: #1f0c10; border-color: #da3633; }
+.b-red    .block-title { color: #f85149; }
+.b-gold   { background: #201800; border-color: #e3b341; }
+.b-gold   .block-title { color: #f0c040; }
+
+/* pulse glow */
+.block::after {
+  content: '';
+  position: absolute; inset: -1px;
+  border-radius: 13px;
+  opacity: 0;
+  animation: blockGlow 3s ease-in-out infinite;
+  pointer-events: none;
+}
+.b-blue::after   { box-shadow: 0 0 16px #1f6feb66; animation-delay: 0s; }
+.b-green::after  { box-shadow: 0 0 16px #2ea04366; animation-delay: .6s; }
+.b-orange::after { box-shadow: 0 0 16px #d2992266; animation-delay: 1.2s; }
+.b-teal::after   { box-shadow: 0 0 16px #2188b666; animation-delay: 1.8s; }
+.b-purple::after { box-shadow: 0 0 16px #8957e566; animation-delay: .4s; }
+.b-gold::after   { box-shadow: 0 0 20px #e3b34188; animation-delay: 0s; }
+@keyframes blockGlow {
+  0%,100% { opacity: 0; }
+  50%      { opacity: 1; }
+}
+
+/* ── 커넥터 ── */
+.connector {
+  display: flex; flex-direction: column; align-items: center;
+  width: 100%; position: relative;
+  padding: 6px 0;
+}
+.conn-line {
+  width: 2px; background: #30363d;
+  position: relative; overflow: visible;
+}
+.conn-dot {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  width: 9px; height: 9px; border-radius: 50%;
+  animation: slideDown 1.4s linear infinite;
+}
+.conn-dot2 { animation-delay: .7s; }
+@keyframes slideDown {
+  0%   { top: 0%;   opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+.conn-arrow {
+  width: 0; height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  margin-top: -1px;
+}
+.conn-label {
+  font-size: .68rem; font-weight: 600;
+  padding: 3px 10px; border-radius: 10px;
+  letter-spacing: .3px; white-space: nowrap;
+  position: absolute; left: 50%; transform: translateX(-50%);
+  top: 50%; margin-top: -10px;
+  z-index: 2;
+}
+
+/* ── 수평 분기 (2열) ── */
+.two-col { display: flex; gap: 16px; width: 100%; }
+.two-col > .block { flex: 1; }
+.two-col-merge { display: flex; width: 100%; position: relative; height: 60px; }
+.merge-line {
+  position: absolute;
+  background: #30363d;
+}
+
+/* ── 시퀀스 매트릭스 ── */
+.matrix-wrap {
+  width: 100%; overflow-x: auto;
+  display: flex; justify-content: center;
+  padding: 8px 0;
+}
+.matrix-inner { display: flex; gap: 2px; align-items: flex-end; }
+.mat-col { display: flex; flex-direction: column; gap: 2px; }
+.mat-cell {
+  width: 20px; height: 20px; border-radius: 3px;
+  border: 1px solid transparent;
+  transition: transform .2s, opacity .2s;
+}
+
+/* ── feature 태그들 ── */
+.feat-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+.feat-tag {
+  padding: 4px 12px; border-radius: 20px; font-size: .7rem; font-weight: 600; border: 1px solid;
+}
+
+/* ── 결과 박스 ── */
+.result-glow {
+  width: 100%;
+  border-radius: 14px; padding: 20px;
+  text-align: center; border: 2px solid;
+  animation: resultPulse 2s ease-in-out infinite alternate;
+}
+@keyframes resultPulse {
+  from { box-shadow: 0 0 12px currentColor; }
+  to   { box-shadow: 0 0 30px currentColor; }
+}
+.result-val { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+.result-unit { font-size: .75rem; color: #8b949e; margin-top: 4px; }
+.result-metric { font-size: .72rem; margin-top: 8px; }
+
+/* ── gate 카드 ── */
+.gate-row { display: flex; gap: 10px; width: 100%; flex-wrap: wrap; }
+.gate-card {
+  flex: 1; min-width: 140px;
+  background: #120920; border: 1px solid #8957e5;
+  border-radius: 10px; padding: 10px 12px; text-align: center;
+  position: relative; overflow: hidden;
+}
+.gate-card::before {
+  content: '';
+  position: absolute; top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, #a371f718, transparent);
+  animation: shimmer 2.4s linear infinite;
+}
+@keyframes shimmer { 0% { left:-100%; } 100% { left:200%; } }
+.gate-name { font-size: .68rem; color: #a371f7; font-weight: 700; margin-bottom: 4px; }
+.gate-formula { font-size: .7rem; font-family: monospace; color: #c9d1d9; }
+.gate-role { font-size: .63rem; color: #8b949e; margin-top: 4px; }
+
+/* ── tree 카드 ── */
+.tree-row { display: flex; gap: 8px; width: 100%; justify-content: center; flex-wrap: wrap; }
+.tree-card {
+  background: #091a0f; border: 1px solid #2ea043;
+  border-radius: 8px; padding: 10px 14px; text-align: center; min-width: 80px;
+  font-size: .7rem;
+}
+.tree-num { color: #8b949e; font-size: .62rem; }
+.tree-icon { font-size: 1.2rem; display: block; margin: 2px 0; }
+.tree-role { color: #3fb950; font-size: .68rem; }
+
+.section-gap { height: 24px; }
+</style>
+</head>
+<body>
+
+<h1>Weather-Lab · Pipeline Visualization</h1>
+<p class="sub">Open-Meteo + RP2040 Modbus → MySQL → 8 Features → Baseline / LSTM</p>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="show(0)">① 시스템 아키텍처</button>
+  <button class="tab-btn"        onclick="show(1)">② 데이터 수집 → 8 Features</button>
+  <button class="tab-btn"        onclick="show(2)">③ Baseline 추론</button>
+  <button class="tab-btn"        onclick="show(3)">④ LSTM 추론</button>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     PANEL 1  시스템 아키텍처
+══════════════════════════════════════════ -->
+<div id="p0" class="panel active">
+
+  <div class="two-col">
+    <div class="block b-blue">
+      <div class="block-title">🌤 Open-Meteo API</div>
+      <div class="block-desc">기상 데이터 제공<br>군산 (35.95°N, 126.70°E)</div>
+    </div>
+    <div class="block b-orange">
+      <div class="block-title">⚡ RP2040 Modbus</div>
+      <div class="block-desc">발전량 실측 장치<br>/dev/ttyACM0 · 9600 baud</div>
+    </div>
+  </div>
+
+  <!-- merge connector -->
+  <div style="display:flex; width:100%; height:56px; position:relative;">
+    <!-- 왼쪽 선 -->
+    <div style="position:absolute; left:25%; top:0; width:2px; height:60%; background:#1f6feb; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#58a6ff"></div>
+    </div>
+    <!-- 오른쪽 선 -->
+    <div style="position:absolute; left:75%; top:0; width:2px; height:60%; background:#d29922; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#e3b341"></div>
+    </div>
+    <!-- 수평 합류선 -->
+    <div style="position:absolute; left:25%; top:60%; height:2px; width:50%; background:linear-gradient(90deg,#1f6feb,#2ea043,#d29922)"></div>
+    <!-- 중앙 아래 선 -->
+    <div style="position:absolute; left:50%; top:60%; width:2px; height:40%; background:#2ea043; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#3fb950; animation-delay:.3s"></div>
+    </div>
+    <!-- 왼 레이블 -->
+    <div style="position:absolute; left:3%; top:12%; font-size:.63rem; color:#58a6ff; background:#0c2340; padding:2px 7px; border-radius:8px; border:1px solid #1f6feb;">시간별 기상 JSON</div>
+    <!-- 오른 레이블 -->
+    <div style="position:absolute; right:2%; top:12%; font-size:.63rem; color:#e3b341; background:#2b1a0c; padding:2px 7px; border-radius:8px; border:1px solid #d29922;">Modbus 레지스터 3개</div>
+    <!-- 아래 화살표 -->
+    <div style="position:absolute; left:50%; bottom:0; transform:translateX(-50%); width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-top:10px solid #2ea043;"></div>
+  </div>
+
+  <div class="block b-green">
+    <div class="block-title">🗄 MySQL Database</div>
+    <div class="block-desc">weather_hourly (744행) &nbsp;·&nbsp; power_hourly 뷰 (720행)<br>Docker · port 3307</div>
+  </div>
+
+  <div class="connector" style="height:52px">
+    <div class="conn-line" style="height:100%; background:linear-gradient(#2ea043,#39c5cf)">
+      <div class="conn-dot" style="background:#39c5cf"></div>
+      <div class="conn-dot conn-dot2" style="background:#2ea043"></div>
+    </div>
+    <span class="conn-label" style="background:#0b1e24; color:#39c5cf; border:1px solid #2188b6">INNER JOIN (obs_time = hour_time)</span>
+    <div class="conn-arrow" style="border-top-color:#39c5cf"></div>
+  </div>
+
+  <div class="block b-teal">
+    <div class="block-title">🔗 8 Feature 데이터셋</div>
+    <div class="block-desc">720행 × 8 columns — 기상 5개 + 발전량 3개</div>
+    <div class="feat-tags">
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">temperature</span>
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">humidity</span>
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">wind_speed</span>
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">solar_radiation</span>
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">precipitation</span>
+      <span class="feat-tag" style="border-color:#d29922; color:#e3b341">power_kw ★</span>
+      <span class="feat-tag" style="border-color:#d29922; color:#e3b341">panel_temp</span>
+      <span class="feat-tag" style="border-color:#d29922; color:#e3b341">panel_humidity</span>
+    </div>
+  </div>
+
+  <!-- 분기 -->
+  <div style="display:flex; width:100%; height:60px; position:relative;">
+    <div style="position:absolute; left:50%; top:0; width:2px; height:40%; background:#39c5cf; transform:translateX(-50%)"></div>
+    <div style="position:absolute; left:25%; top:40%; height:2px; width:50%; background:linear-gradient(90deg,#2ea043,#8957e5)"></div>
+    <div style="position:absolute; left:25%; top:40%; width:2px; height:60%; background:#2ea043; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#3fb950"></div>
+    </div>
+    <div style="position:absolute; left:75%; top:40%; width:2px; height:60%; background:#8957e5; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#a371f7"></div>
+    </div>
+    <div style="position:absolute; left:10%; top:52%; font-size:.63rem; color:#3fb950; background:#0c2b1a; padding:2px 7px; border-radius:8px; border:1px solid #2ea043">1행 × 8 features</div>
+    <div style="position:absolute; right:8%; top:52%; font-size:.63rem; color:#a371f7; background:#1a1030; padding:2px 7px; border-radius:8px; border:1px solid #8957e5">35행 × 8 features</div>
+    <div style="position:absolute; left:25%; bottom:0; transform:translateX(-50%); width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-top:10px solid #2ea043;"></div>
+    <div style="position:absolute; left:75%; bottom:0; transform:translateX(-50%); width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-top:10px solid #8957e5;"></div>
+  </div>
+
+  <div class="two-col">
+    <div class="block b-green" style="text-align:center">
+      <div class="block-title">🌲 Baseline</div>
+      <div class="block-desc">HistGradientBoosting<br>t시각 → t+1 예측</div>
+      <div style="margin-top:10px; font-size:.8rem; color:#3fb950; font-weight:700">MAE 0.1261 kW &nbsp;·&nbsp; R² 0.987</div>
+    </div>
+    <div class="block b-purple" style="text-align:center">
+      <div class="block-title">🧠 LSTM</div>
+      <div class="block-desc">64 units · 8 epochs<br>35h 시퀀스 → t+1 예측</div>
+      <div style="margin-top:10px; font-size:.8rem; color:#a371f7; font-weight:700">MAE 0.2516 kW &nbsp;·&nbsp; RMSE 0.324</div>
+    </div>
+  </div>
+
+  <!-- 분기 수렴 -->
+  <div style="display:flex; width:100%; height:60px; position:relative;">
+    <div style="position:absolute; left:25%; top:0; width:2px; height:60%; background:#2ea043; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#3fb950"></div>
+    </div>
+    <div style="position:absolute; left:75%; top:0; width:2px; height:60%; background:#8957e5; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#a371f7"></div>
+    </div>
+    <div style="position:absolute; left:25%; top:60%; height:2px; width:50%; background:linear-gradient(90deg,#2ea043,#f0883e,#8957e5)"></div>
+    <div style="position:absolute; left:50%; top:60%; width:2px; height:40%; background:#f0883e; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#f0883e"></div>
+    </div>
+    <div style="position:absolute; left:50%; bottom:0; transform:translateX(-50%); width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-top:10px solid #f0883e;"></div>
+    <div style="position:absolute; left:50%; top:64%; transform:translateX(-50%); font-size:.63rem; color:#f0883e; background:#1f1008; padding:2px 7px; border-radius:8px; border:1px solid #d29922; white-space:nowrap;">예측 발전량 (kW)</div>
+  </div>
+
+  <div class="block b-gold">
+    <div class="block-title">📈 예측 결과 시각화</div>
+    <div class="block-desc">실제값 vs 예측값 · 미래 24시간 예측 · 오차 분포 · feature 상관</div>
+  </div>
+
+</div><!-- /p0 -->
+
+
+<!-- ══════════════════════════════════════════
+     PANEL 2  데이터 수집 → 8 Features
+══════════════════════════════════════════ -->
+<div id="p1" class="panel">
+
+  <div class="two-col">
+    <div class="block b-blue">
+      <div class="block-title">🌤 Open-Meteo API</div>
+      <div class="block-desc">군산 좌표로 과거 기상 조회<br>collect_weather_backfill.py</div>
+    </div>
+    <div class="block b-orange">
+      <div class="block-title">⚡ RP2040 Modbus RTU</div>
+      <div class="block-desc">1초마다 레지스터 폴링<br>collect_rp2040_modbus.py</div>
+    </div>
+  </div>
+
+  <!-- 분기 커넥터 -->
+  <div style="display:flex; width:100%; height:52px; position:relative;">
+    <div style="position:absolute; left:25%; top:0; width:2px; height:100%; background:#1f6feb; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#58a6ff"></div>
+    </div>
+    <div style="position:absolute; left:75%; top:0; width:2px; height:100%; background:#d29922; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#e3b341"></div>
+    </div>
+    <!-- 레이블 -->
+    <div style="position:absolute; left:1%; top:30%; font-size:.63rem; color:#58a6ff; background:#0c2340; padding:2px 8px; border-radius:8px; border:1px solid #1f6feb; white-space:nowrap">
+      {time, temperature, humidity,<br>wind_speed, solar_radiation, precipitation}
+    </div>
+    <div style="position:absolute; right:1%; top:30%; font-size:.63rem; color:#e3b341; background:#2b1a0c; padding:2px 8px; border-radius:8px; border:1px solid #d29922; text-align:right; white-space:nowrap">
+      Reg[0]=power×100<br>Reg[1]=temp×10 · Reg[2]=hum×10
+    </div>
+    <div style="position:absolute; left:25%; bottom:0; transform:translateX(-50%); width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-top:10px solid #1f6feb;"></div>
+    <div style="position:absolute; left:75%; bottom:0; transform:translateX(-50%); width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-top:10px solid #d29922;"></div>
+  </div>
+
+  <div class="two-col">
+    <div class="block b-blue">
+      <div class="block-title">🗄 weather_hourly</div>
+      <div class="block-desc">시간별 기상 데이터 저장<br>744행 · source = openmeteo</div>
+    </div>
+    <div class="block b-orange">
+      <div class="block-title">🗄 power_realtime</div>
+      <div class="block-desc">초당 발전량 원시 데이터 저장<br>→ power_hourly 뷰로 시간 AVG</div>
+    </div>
+  </div>
+
+  <!-- 합류 커넥터 -->
+  <div style="display:flex; width:100%; height:60px; position:relative;">
+    <div style="position:absolute; left:25%; top:0; width:2px; height:50%; background:#1f6feb; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#58a6ff"></div>
+    </div>
+    <div style="position:absolute; left:75%; top:0; width:2px; height:50%; background:#d29922; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#e3b341"></div>
+    </div>
+    <div style="position:absolute; left:25%; top:50%; height:2px; width:50%; background:linear-gradient(90deg,#1f6feb,#39c5cf,#d29922)"></div>
+    <div style="position:absolute; left:50%; top:50%; width:2px; height:50%; background:#39c5cf; transform:translateX(-50%)">
+      <div class="conn-dot" style="background:#39c5cf"></div>
+    </div>
+    <!-- 레이블 -->
+    <div style="position:absolute; left:50%; top:30%; transform:translateX(-50%); font-size:.63rem; color:#39c5cf; background:#0b1e24; padding:2px 9px; border-radius:8px; border:1px solid #2188b6; white-space:nowrap;">
+      obs_time = hour_time 으로 INNER JOIN
+    </div>
+    <div style="position:absolute; left:50%; bottom:0; transform:translateX(-50%); width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-top:10px solid #39c5cf;"></div>
+  </div>
+
+  <div class="block b-teal">
+    <div class="block-title">🔗 JOIN 결과</div>
+    <div class="block-desc">시간이 일치하는 행만 결합 · 720행</div>
+  </div>
+
+  <div class="connector" style="height:48px">
+    <div class="conn-line" style="height:100%; background:linear-gradient(#39c5cf,#a371f7)">
+      <div class="conn-dot" style="background:#a371f7"></div>
+    </div>
+    <span class="conn-label" style="background:#1a1030; color:#a371f7; border:1px solid #8957e5">9개 컬럼 → 8 feature + obs_time</span>
+    <div class="conn-arrow" style="border-top-color:#a371f7"></div>
+  </div>
+
+  <div class="block b-purple">
+    <div class="block-title">📊 8 Feature 데이터셋</div>
+    <div class="block-desc">ml_shared.py · load_joined() 반환값 · 720행 × 8 columns</div>
+    <div class="feat-tags">
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">① temperature</span>
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">② humidity</span>
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">③ wind_speed</span>
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">④ solar_radiation</span>
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">⑤ precipitation</span>
+      <span class="feat-tag" style="border-color:#d29922; color:#e3b341">⑥ power_kw ★</span>
+      <span class="feat-tag" style="border-color:#d29922; color:#e3b341">⑦ panel_temp</span>
+      <span class="feat-tag" style="border-color:#d29922; color:#e3b341">⑧ panel_humidity</span>
+    </div>
+  </div>
+
+</div><!-- /p1 -->
+
+
+<!-- ══════════════════════════════════════════
+     PANEL 3  Baseline 추론
+══════════════════════════════════════════ -->
+<div id="p2" class="panel">
+
+  <div class="block b-teal">
+    <div class="block-title">📊 8 Feature 데이터셋 (720행 × 8)</div>
+    <div class="block-desc">make_baseline_xy() · data[:-1] → X, y[1:] → y · 80% train / 20% test 분할</div>
+  </div>
+
+  <div class="connector" style="height:52px">
+    <div class="conn-line" style="height:100%; background:linear-gradient(#39c5cf,#e3b341)">
+      <div class="conn-dot" style="background:#e3b341"></div>
+    </div>
+    <span class="conn-label" style="background:#2b1a0c; color:#e3b341; border:1px solid #d29922">X = t 시각 8 features · y = t+1 power_kw</span>
+    <div class="conn-arrow" style="border-top-color:#e3b341"></div>
+  </div>
+
+  <div class="block b-orange">
+    <div class="block-title">🔄 입력 벡터 (1행 × 8)</div>
+    <div class="block-desc">현재 시각 t 의 스냅샷 — 정규화 없이 원본값 그대로 사용</div>
+    <div class="feat-tags" style="margin-top:10px">
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">temp 22.4°C</span>
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">hum 68%</span>
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">wind 3.1m/s</span>
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">solar 412W/m²</span>
+      <span class="feat-tag" style="border-color:#1f6feb; color:#58a6ff">precip 0mm</span>
+      <span class="feat-tag" style="border-color:#d29922; color:#e3b341">power 2.84kW</span>
+      <span class="feat-tag" style="border-color:#d29922; color:#e3b341">p.temp 31.2°C</span>
+      <span class="feat-tag" style="border-color:#d29922; color:#e3b341">p.hum 55%</span>
+    </div>
+  </div>
+
+  <div class="connector" style="height:48px">
+    <div class="conn-line" style="height:100%; background:linear-gradient(#d29922,#2ea043)">
+      <div class="conn-dot" style="background:#3fb950"></div>
+    </div>
+    <span class="conn-label" style="background:#0c2b1a; color:#3fb950; border:1px solid #2ea043">float 벡터 [8]</span>
+    <div class="conn-arrow" style="border-top-color:#3fb950"></div>
+  </div>
+
+  <div class="block b-green">
+    <div class="block-title">🌲 HistGradientBoostingRegressor</div>
+    <div class="block-desc">약한 결정트리를 순차적으로 추가 · 이전 트리의 잔차를 다음 트리가 보정<br>max_depth=6 · learning_rate=0.1</div>
+    <div class="tree-row" style="margin-top:12px">
+      <div class="tree-card">
+        <span class="tree-num">Tree 1</span>
+        <span class="tree-icon">🌿</span>
+        <span class="tree-role">초기 예측</span>
+      </div>
+      <div class="tree-card">
+        <span class="tree-num">Tree 2</span>
+        <span class="tree-icon">🌿</span>
+        <span class="tree-role">잔차 보정</span>
+      </div>
+      <div class="tree-card">
+        <span class="tree-num">Tree 3</span>
+        <span class="tree-icon">🌿</span>
+        <span class="tree-role">잔차 보정</span>
+      </div>
+      <div class="tree-card" style="border-style:dashed">
+        <span class="tree-num">···</span>
+        <span class="tree-icon">🌿</span>
+        <span class="tree-role">반복</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector" style="height:48px">
+    <div class="conn-line" style="height:100%; background:linear-gradient(#2ea043,#3fb950)">
+      <div class="conn-dot" style="background:#3fb950"></div>
+      <div class="conn-dot conn-dot2" style="background:#58c770"></div>
+    </div>
+    <span class="conn-label" style="background:#0c2b1a; color:#3fb950; border:1px solid #2ea043">모든 트리 예측값 합산 → float 스칼라</span>
+    <div class="conn-arrow" style="border-top-color:#3fb950"></div>
+  </div>
+
+  <div class="result-glow" style="border-color:#3fb950; color:#3fb950; background:#091a0f">
+    <div style="font-size:.78rem; color:#8b949e; margin-bottom:6px">출력 · 시각 t+1 예측 발전량</div>
+    <div class="result-val" style="color:#3fb950">2.91 kW</div>
+    <div class="result-unit">power_kw (t+1) — 원본 kW 단위 직접 출력</div>
+    <div class="result-metric" style="color:#3fb950">MAE 0.1261 kW &nbsp;·&nbsp; R² 0.987</div>
+  </div>
+
+</div><!-- /p2 -->
+
+
+<!-- ══════════════════════════════════════════
+     PANEL 4  LSTM 추론
+══════════════════════════════════════════ -->
+<div id="p3" class="panel">
+
+  <div class="block b-teal">
+    <div class="block-title">📊 8 Feature 데이터셋 (720행 × 8)</div>
+    <div class="block-desc">make_sequences() · MinMaxScaler로 [0,1] 정규화 후 슬라이딩 윈도우 적용</div>
+  </div>
+
+  <div class="connector" style="height:52px">
+    <div class="conn-line" style="height:100%; background:linear-gradient(#39c5cf,#8957e5)">
+      <div class="conn-dot" style="background:#a371f7"></div>
+    </div>
+    <span class="conn-label" style="background:#1a1030; color:#a371f7; border:1px solid #8957e5">MinMaxScaler → 0~1 정규화된 2D array</span>
+    <div class="conn-arrow" style="border-top-color:#8957e5"></div>
+  </div>
+
+  <div class="block b-purple">
+    <div class="block-title">🪟 슬라이딩 윈도우 (SEQ_LEN = 35)</div>
+    <div class="block-desc">연속된 35시간을 하나의 샘플로 묶음 · 총 685개 시퀀스 생성</div>
+    <!-- matrix -->
+    <div style="margin-top:12px; overflow-x:auto; width:100%">
+      <div id="mat" style="display:flex; align-items:flex-end; gap:2px; justify-content:center; min-width:max-content; padding:4px 0"></div>
+      <div style="display:flex; justify-content:space-between; font-size:.6rem; color:#8b949e; padding:0 4px; margin-top:4px; min-width:200px">
+        <span>← t-34 (과거)</span>
+        <span style="color:#a371f7; font-weight:700">t (현재) →</span>
+      </div>
+    </div>
+    <div style="margin-top:8px; font-size:.7rem; color:#8b949e; text-align:center">
+      shape: <span style="color:#a371f7; font-family:monospace">(35, 8)</span>
+      &nbsp;·&nbsp; 각 열 = 1 timestep · 각 행 = 1 feature
+    </div>
+  </div>
+
+  <div class="connector" style="height:48px">
+    <div class="conn-line" style="height:100%; background:linear-gradient(#8957e5,#a371f7)">
+      <div class="conn-dot" style="background:#a371f7"></div>
+      <div class="conn-dot conn-dot2" style="background:#c0a0ff"></div>
+    </div>
+    <span class="conn-label" style="background:#1a1030; color:#a371f7; border:1px solid #8957e5">tensor (35, 8) — 정규화된 시계열</span>
+    <div class="conn-arrow" style="border-top-color:#a371f7"></div>
+  </div>
+
+  <div class="block b-purple">
+    <div class="block-title">🧠 LSTM Layer (64 units)</div>
+    <div class="block-desc">35개 timestep을 순서대로 처리 · 각 step에서 hidden/cell state 갱신</div>
+    <div class="gate-row" style="margin-top:12px">
+      <div class="gate-card">
+        <div class="gate-name">Forget Gate</div>
+        <div class="gate-formula">σ(Wf·[h,x]+b)</div>
+        <div class="gate-role">과거 정보 중<br>버릴 것 결정</div>
+      </div>
+      <div class="gate-card">
+        <div class="gate-name">Input Gate</div>
+        <div class="gate-formula">σ(Wi·[h,x]+b)</div>
+        <div class="gate-role">새 정보 중<br>저장할 것 결정</div>
+      </div>
+      <div class="gate-card">
+        <div class="gate-name">Output Gate</div>
+        <div class="gate-formula">σ(Wo·[h,x]+b)</div>
+        <div class="gate-role">hidden state<br>h 출력 결정</div>
+      </div>
+    </div>
+    <div style="margin-top:10px; font-size:.7rem; color:#8b949e; text-align:center">
+      t=1 → t=2 → ··· → t=35 순차 처리 후 마지막 hidden state <span style="color:#a371f7; font-family:monospace">h₃₅ [64]</span> 출력
+    </div>
+  </div>
+
+  <div class="connector" style="height:48px">
+    <div class="conn-line" style="height:100%; background:linear-gradient(#a371f7,#8957e5)">
+      <div class="conn-dot" style="background:#c0a0ff"></div>
+    </div>
+    <span class="conn-label" style="background:#1a1030; color:#a371f7; border:1px solid #8957e5">h₃₅ — 64차원 벡터 (시계열 전체 요약)</span>
+    <div class="conn-arrow" style="border-top-color:#8957e5"></div>
+  </div>
+
+  <div class="block b-purple">
+    <div class="block-title">🔢 Dense(1) Layer</div>
+    <div class="block-desc">64차원 → 스칼라 1개 · 선형 활성화<br>output = Σ(w · h₃₅) + b</div>
+  </div>
+
+  <div class="connector" style="height:48px">
+    <div class="conn-line" style="height:100%; background:linear-gradient(#8957e5,#39c5cf)">
+      <div class="conn-dot" style="background:#39c5cf"></div>
+    </div>
+    <span class="conn-label" style="background:#0b1e24; color:#39c5cf; border:1px solid #2188b6">정규화된 예측값 (0~1 범위)</span>
+    <div class="conn-arrow" style="border-top-color:#39c5cf"></div>
+  </div>
+
+  <div class="block b-teal">
+    <div class="block-title">↩ MinMaxScaler 역변환</div>
+    <div class="block-desc">y_kw = y_scaled × (max − min) + min &nbsp;·&nbsp; 원본 kW 단위로 복원</div>
+  </div>
+
+  <div class="connector" style="height:48px">
+    <div class="conn-line" style="height:100%; background:linear-gradient(#39c5cf,#a371f7)">
+      <div class="conn-dot" style="background:#a371f7"></div>
+      <div class="conn-dot conn-dot2" style="background:#c0a0ff"></div>
+    </div>
+    <span class="conn-label" style="background:#1a1030; color:#a371f7; border:1px solid #8957e5">복원된 float 스칼라 (kW)</span>
+    <div class="conn-arrow" style="border-top-color:#a371f7"></div>
+  </div>
+
+  <div class="result-glow" style="border-color:#a371f7; color:#a371f7; background:#120c26">
+    <div style="font-size:.78rem; color:#8b949e; margin-bottom:6px">출력 · 시각 t+1 예측 발전량</div>
+    <div class="result-val" style="color:#a371f7">2.76 kW</div>
+    <div class="result-unit">power_kw (t+1) — 35시간 시퀀스 기반</div>
+    <div class="result-metric" style="color:#a371f7">MAE 0.2516 kW &nbsp;·&nbsp; RMSE 0.3243 kW</div>
+  </div>
+
+</div><!-- /p3 -->
+
+
+<script>
+function show(i) {
+  document.querySelectorAll('.panel').forEach((p,j)    => p.classList.toggle('active', i===j));
+  document.querySelectorAll('.tab-btn').forEach((b,j)  => b.classList.toggle('active', i===j));
+  if (i===3) buildMat();
+}
+
+// ── LSTM 입력 행렬 렌더링 ──────────────────────
+let matBuilt = false;
+function buildMat() {
+  if (matBuilt) return;
+  matBuilt = true;
+  const wrap = document.getElementById('mat');
+  const STEPS = 35, FEATS = 8;
+  const fgColors = ['#58a6ff','#58a6ff','#58a6ff','#58a6ff','#58a6ff','#e3b341','#e3b341','#e3b341'];
+  const bgColors = ['#0c2340','#0c2340','#0c2340','#0c2340','#0c2340','#2b1a0c','#2b1a0c','#2b1a0c'];
+
+  for (let t = 0; t < STEPS; t++) {
+    const col = document.createElement('div');
+    col.style.cssText = 'display:flex;flex-direction:column;gap:2px;flex-shrink:0';
+    for (let f = 0; f < FEATS; f++) {
+      const v = Math.random();
+      const cell = document.createElement('div');
+      const alpha = Math.round(40 + v * 150).toString(16).padStart(2,'0');
+      cell.style.cssText = `
+        width:18px; height:18px; border-radius:3px;
+        background:${bgColors[f]};
+        border:1px solid ${fgColors[f]}${alpha};
+        opacity:${(0.4 + v * 0.6).toFixed(2)};
+        transition: opacity .3s, transform .3s;
+        flex-shrink:0;
+      `;
+      col.appendChild(cell);
+    }
+    wrap.appendChild(col);
+  }
+
+  // 컬럼 하이라이트 sweep
+  let cur = 0;
+  setInterval(() => {
+    const cols = wrap.children;
+    Array.from(cols).forEach((col, i) => {
+      const active = i === cur;
+      Array.from(col.children).forEach(cell => {
+        cell.style.opacity    = active ? '1' : '';
+        cell.style.transform  = active ? 'scaleY(1.15)' : '';
+        cell.style.boxShadow  = active ? '0 0 6px #a371f7' : '';
+      });
+    });
+    cur = (cur + 1) % STEPS;
+  }, 100);
+}
+</script>
+
+</body>
+</html>

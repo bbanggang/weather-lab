@@ -138,23 +138,24 @@ DEVICE_ID=RP2040-EMU-01
 
 ```bash
 # 기상 데이터 31일 backfill (시드와 날짜 맞춤)
-uv run python collect_weather_backfill.py 31
+uv run python collect/collect_weather_backfill.py 31
 
 # RP2040 Modbus 실시간 수집 (Ctrl+C로 종료)
-uv run python collect_rp2040_modbus.py
+uv run python collect/collect_rp2040_modbus.py
 ```
 
 ### 모델 훈련
 
 ```bash
-uv run python train_baseline.py   # Baseline (HistGradientBoosting)
-uv run python lstm_train.py       # LSTM
+uv run python ml/train_baseline.py   # Baseline (HistGradientBoosting)
+uv run python ml/lstm_train.py       # LSTM
 ```
 
 ### 시각화
 
 ```bash
-uv run python visualize.py        # matplotlib 창으로 표시
+# 브라우저에서 열기
+viz/weather_lab_viz.html
 ```
 
 ---
@@ -165,15 +166,14 @@ uv run python visualize.py        # matplotlib 창으로 표시
 |------|------|
 | `db.py` | MySQL 연결 및 weather_hourly 저장 함수 |
 | `weather_openmeteo.py` | Open-Meteo API 호출 (기상 데이터) |
-| `collect_weather.py` | API JSON 1일치 파일로 저장 (확인용) |
-| `collect_weather_backfill.py` | N일치 기상 데이터 수집 → DB 저장 |
-| `collect_rp2040_modbus.py` | RP2040 Modbus RTU/TCP 실시간 수집 |
-| `ml_shared.py` | DB 로드, feature 생성, 전처리 공통 함수 |
-| `train_baseline.py` | HistGradientBoosting 훈련 → metrics_baseline.json |
-| `lstm_train.py` | LSTM 훈련 + Baseline 비교 출력 |
-| `visualize.py` | 예측 결과 matplotlib 시각화 (5개 그래프) |
-| `rp2040_modbus_slave.ino` | RP2040 Modbus RTU Slave 펌웨어 |
-| `system_diagram.html` | 시스템 구성 애니메이션 다이어그램 |
+| `collect/collect_weather.py` | API JSON 1일치 파일로 저장 (확인용) |
+| `collect/collect_weather_backfill.py` | N일치 기상 데이터 수집 → DB 저장 |
+| `collect/collect_rp2040_modbus.py` | RP2040 Modbus RTU/TCP 실시간 수집 |
+| `ml/ml_shared.py` | DB 로드, feature 생성, 전처리 공통 함수 |
+| `ml/train_baseline.py` | HistGradientBoosting 훈련 → metrics_baseline.json |
+| `ml/lstm_train.py` | LSTM 훈련 + Baseline 비교 출력 |
+| `viz/weather_lab_viz.html` | 파이프라인 4단계 애니메이션 시각화 |
+| `firmware/rp2040_modbus_slave.ino` | RP2040 Modbus RTU Slave 펌웨어 |
 | `seed/power_realtime_seed.sql` | 발전량 720행 초기 데이터 |
 | `seed/README.md` | 시드 데이터 재생성 방법 |
 
